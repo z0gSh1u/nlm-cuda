@@ -2,6 +2,8 @@
 // by z0gSh1u @ 2021-12
 // https://github.com/z0gSh1u/nlm-cuda
 
+// TODO Use another name.
+
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -9,141 +11,124 @@
 #include <climits>
 #include <string>
 #include <cstdlib>
+#include <rapidjson/document.h>
 
-typedef unsigned char uint8;
+#include "../misc/ProgressBar.hpp"
+#include "../misc/utils.hpp"
+
+using std::cout;
+using std::endl;
 using std::string;
 
-int H, W;
-uint8 *_src;
-uint8 *_dst;
+// ========= [Parameters to read or calculate] =========
+// float-type image during processing
 float *src;
 float *dst;
+// height and width source and destination image
+int H, W, dstH, dstW;
+// IO
+string srcPath;
+string dstPath;
+// parameters of NLM
+int FilterRadius;
+int WindowRadius;
+float ParamH;
+// progress bar
+ProgressBar progressBar;
+// ========= [Parameters to read or calculate] =========
 
-float progress = 0.0;
-float progressPerRow = 0.0;
-
-// Implement of a simple progressbar.
-// @see https://stackoverflow.com/questions/14539867/
-void updateProgressBar(float progress, int barWidth = 40) {
-  std::cout << "[";
-  int pos = barWidth * progress;
-  for (int i = 0; i < barWidth; i++) {
-    std::cout << (i < pos ? "=" : i == pos ? ">" : " ");
-  }
-  std::cout << "] " << int(progress * 100.0) << " %\r";
-  std::cout.flush();
+#define CONFIG_PATH "../NLMConfig.json"
+// Load configuration file.
+void loadConfig(string configPath) {
+  rapidjson::Document d;
+  d.Parse(readFileText(configPath).c_str());
+  W = d["SourceImageWidth"].GetInt();
+  H = d["SourceImageHeight"].GetInt();
+  FilterRadius = d["FilterSize"].GetInt() >> 1;
+  WindowRadius = d["WindowSize"].GetInt() >> 1;
+  ParamH = d["ParamH"].GetFloat();
+  srcPath = d["SourceImagePath"].GetString();
+  dstPath = d["OutputImagePath"].GetString();
+  dstH = H + FilterRadius * 2;
+  dstW = W + FilterRadius * 2;
 }
 
-void uint8ImageToFloat(uint8 *src, float *dst) {
-  for (int i = 0; i < H * W; i++) {
-    dst[i] = src[i] / 255.0f;
-  }
-}
+// Get pixel index according to row and col.
+int index(int r, int c, int W) { return r * W + c; }
 
-void floatImageToUint8(float *src, uint8 *dst) {
-  float max_ = -(FLT_MAX - 1), min_ = FLT_MAX - 1;
-  for (int i = 0; i < H * W; i++) {
-    max_ = std::max(max_, src[i]);
-    min_ = std::min(min_, src[i]);
-  }
-  for (int i = 0; i < H * W; i++) {
-    dst[i] = uint8((src[i] - min_) / (max_ - min_) * 255);
-  }
-}
+// Pad image symmetrically (mirror) with FilterRadius.
+void padImageSymmetric() {
+  int srcIndex, dstIndex, i, j, fr = FilterRadius;
 
-int getIndex(int r, int c) { return r * W + c; }
-
-float calcWeightUnNormalized(int blockStartRow, int blockStartCol,
-                             int filterSize, int x, int y, float paramH) {
-  int filterRadius = filterSize / 2;
-  x = x - filterRadius, y = y - filterRadius;
-  float l2Norm = 0.0;
-  for (int i = 0; i < filterSize; i++) {
-    for (int j = 0; j < filterSize; j++) {
-      l2Norm += pow(src[getIndex(blockStartRow + i, blockStartCol + j)] -
-                        src[getIndex(x + i, y + j)],
-                    2);
+  // Original Viewport.
+  for (i = 0; i < H; i++) {
+    for (j = 0; j < W; j++) {
+      dst[index(i + fr, j + fr, dstW)] = src[index(i, j, W)];
     }
   }
-  l2Norm /= (filterSize * filterSize);
-  return exp(-l2Norm / (paramH * paramH));
-}
 
-void NLMDenoise(int filterSize, int windowSize, double paramH) {
-  int filterRadius = filterSize / 2;
-  int windowRadius = windowSize / 2;
+  // Four Wings.
+  dstIndex = fr, srcIndex = 0;
+  while (srcIndex++, dstIndex--) {
+    for (i = 0; i < H; i++) {
+      dst[index(i + fr, dstIndex, dstW)] = src[index(i, srcIndex, W)];
+      dst[index(i + fr, dstIndex + W + 2 * srcIndex - 1, dstW)] =
+          src[index(i, W - srcIndex, W)];
+    }
+    for (j = 0; j < W; j++) {
+      dst[index(dstIndex, j + fr, dstW)] = src[index(srcIndex, j, W)];
+      dst[index(dstIndex + H + 2 * srcIndex - 1, j + fr, dstW)] =
+          src[index(H - srcIndex, j, W)];
+    }
+  }
 
-  float weightedPixels[512];
-  int weightedPixelCount = 0;
-
-  for (int i = filterRadius; i < H; i++) { // TODO Remove filterRadius?
-    updateProgressBar(progress = progress + progressPerRow);
-
-    for (int j = filterRadius; j < W; j++) {
-      // determine search window
-      int windowStartRow = std::max(i - windowRadius, 0),
-          windowStartCol = std::max(j - windowRadius, 0),
-          windowEndRow = std::min(i + windowRadius, H - 1),
-          windowEndCol = std::min(j + windowRadius, W - 1);
-      // block matching
-      float totalWeight = 0.0;
-      weightedPixelCount = 0;
-      for (int k = windowStartRow; k < windowEndRow - filterSize; k++) {
-        for (int l = windowStartCol; l < windowEndCol - filterSize; l++) {
-          float unNormalizedWeight =
-              calcWeightUnNormalized(k, l, filterSize, i, j, paramH);
-          weightedPixels[weightedPixelCount++] =
-              unNormalizedWeight *
-              src[getIndex(k + filterRadius, l + filterRadius)];
-          totalWeight += unNormalizedWeight;
-        }
-      }
-      // normalize
-      for (int m = 0; m < weightedPixelCount; m++) {
-        weightedPixels[m] /= totalWeight;
-      }
-      dst[getIndex(i, j)] = std::accumulate(
-          weightedPixels, weightedPixels + weightedPixelCount, 0.0f);
+  // Corners. Pad according to rows of wing.
+  dstIndex = srcIndex = fr;
+  while (srcIndex++, dstIndex--) {
+    for (i = 0; i < fr; i++) {
+      dst[index(i, dstIndex, dstW)] = dst[index(i, srcIndex, dstW)];
+      dst[index(i, srcIndex + W - 1, dstW)] = dst[index(i, dstIndex + W, dstW)];
+      dst[index(i + H + fr, dstIndex, dstW)] =
+          dst[index(i + H + fr, srcIndex, dstW)];
+      dst[index(i + H + fr, srcIndex + W - 1, dstW)] =
+          dst[index(i + H + fr, dstIndex + W, dstW)];
     }
   }
 }
 
-void readFileBinary(string filePath, int elementSize, int elementCount,
-                    void *store) {
-  FILE *fp;
-  fopen_s(&fp, filePath.c_str(), "rb");
-  fread((char *)store, elementSize, elementCount, fp);
-  fclose(fp);
-}
+void nlm(int ds, int Ds) {
+  for (int i = 0; i < H; i++) {
+    for (int j = 0; j < W; j++) {
+      // corresponding position in dst
+      int r = i + ds, c = j + ds;
+      // filter range: r+-ds, c+-ds
 
-void writeFileBinary(void *ptr, int elementSize, int elementCount,
-                     string filePath) {
-  FILE *fp;
-  fopen_s(&fp, filePath.c_str(), "wb");
-  fwrite((char *)ptr, elementSize, elementCount, fp);
-  fclose(fp);
+      // window range:
+      int rmin = std::max(r - Ds, ds + 1), rmax = std::min(r + Ds, H + ds),
+          smin = std::max(c - Ds, ds + 1), smax = std::min(c + Ds, W + ds);
+    }
+  }
 }
 
 int main() {
-  H = W = 512;
-  _src = new uint8[H * W];
-  _dst = new uint8[H * W];
+  // Load config file.
+  loadConfig(CONFIG_PATH);
+
+  // Read source image.
+  uint8 *src8bit = new uint8[H * W];
+  readFileBinary(srcPath, 1, H * W, src8bit);
   src = new float[H * W];
-  dst = new float[H * W];
-  progressPerRow = 1.0f / H;
+  uint8ImageToFloat(src8bit, src, H, W);
+  delete src8bit;
 
-  string imgPath = "F:/nlm-cuda/experiment/noisy_image/lena512_gaussian.raw";
-  readFileBinary(imgPath, 1, H * W, _src);
-  uint8ImageToFloat(_src, src);
+  // Initialize destination image.
+  dst = new float[dstH * dstW];
+  std::fill_n(dst, dstH * dstW, 0.0);
+  padImageSymmetric();
 
-  std::fill_n(dst, H * W, 0.0);
-  NLMDenoise(3, 14, 20.0);
+  // writeFileBinary(dst, sizeof(float), (H + ds * 2) * (W + ds * 2), dstPath);
 
-  string resPath = "F:/nlm-cuda/temp/res.raw";
-  // floatImageToUint8(dst, _dst);
-  writeFileBinary(dst, sizeof(float), H * W, resPath);
-
-  std::cout << "Done." << std::endl;
+  std::cout << "nlm-cpu Done." << std::endl;
 
   return 0;
 }
