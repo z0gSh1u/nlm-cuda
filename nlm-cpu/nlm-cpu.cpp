@@ -1,6 +1,5 @@
 // Non-Local Means Denoising on CPU
-// by z0gSh1u @ 2021-12
-// https://github.com/z0gSh1u/nlm-cuda
+// ZHUO Xu @ https://github.com/z0gSh1u/nlm-cuda
 
 #include <iostream>
 #include <algorithm>
@@ -67,34 +66,34 @@ int index(int r, int c, int W) { return r * W + c; }
 
 // Pad image symmetrically (mirror) with PatchRadius.
 void padSourceImageSymmetric() {
-  int srcIdx, dstIdx, i, j, fr = PatchRadius;
+  int srcIdx, dstIdx, i, j, pr = PatchRadius;
   // Original Viewport.
   for (i = 0; i < srcH; i++) {
     for (j = 0; j < srcW; j++) {
-      pad[index(i + fr, j + fr, padW)] = src[index(i, j, srcW)];
+      pad[index(i + pr, j + pr, padW)] = src[index(i, j, srcW)];
     }
   }
   // Four Wings.
-  dstIdx = fr, srcIdx = 0;
+  dstIdx = pr, srcIdx = 0;
   while (srcIdx++, dstIdx--) {
     for (i = 0; i < srcH; i++) {
-      pad[index(i + fr, dstIdx, padW)] = src[index(i, srcIdx, srcW)];
-      pad[index(i + fr, dstIdx + srcW + 2 * srcIdx - 1, padW)] = src[index(i, srcW - srcIdx, srcW)];
+      pad[index(i + pr, dstIdx, padW)] = src[index(i, srcIdx, srcW)];
+      pad[index(i + pr, dstIdx + srcW + 2 * srcIdx - 1, padW)] = src[index(i, srcW - srcIdx, srcW)];
     }
     for (j = 0; j < srcW; j++) {
-      pad[index(dstIdx, j + fr, padW)] = src[index(srcIdx, j, srcW)];
-      pad[index(dstIdx + srcH + 2 * srcIdx - 1, j + fr, padW)] = src[index(srcH - srcIdx, j, srcW)];
+      pad[index(dstIdx, j + pr, padW)] = src[index(srcIdx, j, srcW)];
+      pad[index(dstIdx + srcH + 2 * srcIdx - 1, j + pr, padW)] = src[index(srcH - srcIdx, j, srcW)];
     }
   }
   // Corners. Pad according to rows of wing.
-  dstIdx = srcIdx = fr;
+  dstIdx = srcIdx = pr;
   while (srcIdx++, dstIdx--) {
-    for (i = 0; i < fr; i++) {
+    for (i = 0; i < pr; i++) {
       pad[index(i, dstIdx, padW)] = pad[index(i, srcIdx, padW)];
       pad[index(i, srcIdx + srcW - 1, padW)] = pad[index(i, dstIdx + srcW, padW)];
-      pad[index(i + srcH + fr, dstIdx, padW)] = pad[index(i + srcH + fr, srcIdx, padW)];
-      pad[index(i + srcH + fr, srcIdx + srcW - 1, padW)] =
-          pad[index(i + srcH + fr, dstIdx + srcW, padW)];
+      pad[index(i + srcH + pr, dstIdx, padW)] = pad[index(i + srcH + pr, srcIdx, padW)];
+      pad[index(i + srcH + pr, srcIdx + srcW - 1, padW)] =
+          pad[index(i + srcH + pr, dstIdx + srcW, padW)];
     }
   }
 }
@@ -116,28 +115,31 @@ float calcPatchDistance(Patch w1, Patch w2) {
 }
 
 // Non-local Means denoise.
-void NLMDenoise(int fr, int wr) {
+void NLMDenoise(int pr, int wr) {
   // iterate dst image (reverse mapping) to ensure every pixel has denoised value
+  // (i, j) is (row, col) of dst image
   for (int i = 0; i < srcH; i++) {
     progressBar.update(ProgressPerRow);
     for (int j = 0; j < srcW; j++) {
       // corresponding position in pad
-      int r = i + fr, c = j + fr;
+      int r = i + pr, c = j + pr;
       // source patch
-      Patch SourcePatch(r - fr, r + fr, c - fr, c + fr);
+      Patch SourcePatch(r - pr, r + pr, c - pr, c + pr);
       // search window
-      Patch SearchWindow(std::max(r - wr, fr), std::min(r + wr, srcH + fr), std::max(c - wr, fr),
-                         std::min(c + wr, srcW + fr));
+      Patch SearchWindow(std::max(r - wr, pr), std::min(r + wr, srcH + pr), std::max(c - wr, pr),
+                         std::min(c + wr, srcW + pr));
+
       float sumWeight = 0.0,  // sum of weight of current two patches' matching
           maxWeight = 0.0,    // maximum weight during weight calculation
           averageValue = 0.0, // average value after weighting to replace the noisy pixel
           distance,           // distance of two patches
           weight;             // weight of current matching
+
       // iterate the search window
       for (int k = SearchWindow.r0; k < SearchWindow.r1; k++) {
         for (int l = SearchWindow.c0; l < SearchWindow.c1; l++) {
           // compare patch
-          Patch ComparePatch(k - fr, k + fr, l - fr, l + fr);
+          Patch ComparePatch(k - pr, k + pr, l - pr, l + pr);
           // calculate distance
           if (k == r && l == c) { // center pixel is a special case, see outside
             continue;
@@ -149,6 +151,7 @@ void NLMDenoise(int fr, int wr) {
           averageValue += weight * pad[index(k, l, padW)];
         }
       }
+
       // Deal with center pixel, use maximum weight for it instead of 1 when distance is 0.
       // Otherwise, 1 is too big to other weights, that noise is preserved.
       sumWeight += maxWeight;
@@ -161,9 +164,8 @@ void NLMDenoise(int fr, int wr) {
 int main(int argc, char *argv[]) {
   cout << "\033[46;30m [NLM-CPU] Running... \033[0m" << endl;
   // Load config file.
-  // ASSERT(argc >= 2, "[Usage] ./nlm-cpu path/to/config.json");
-  // loadConfig(string(argv[1]));
-  loadConfig("F:/nlm-cuda/NLMConfig.json");
+  ASSERT(argc >= 2, "[Usage] ./nlm-cpu path/to/config.json");
+  loadConfig(string(argv[1]));
 
   // Read source image (8-bit, single channel).
   uint8 *src8bit = new uint8[srcH * srcW];

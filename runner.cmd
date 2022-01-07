@@ -1,0 +1,1 @@
+.\out\build\x64-Debug\nlm-cuda\nlm-cuda.exe .\NLMConfig.json

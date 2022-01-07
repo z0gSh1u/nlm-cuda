@@ -34,8 +34,7 @@ string readFileText(string filePath) {
 }
 
 // Read binary file.
-void readFileBinary(string filePath, int elementSize, int elementCount,
-                    void *store) {
+void readFileBinary(string filePath, int elementSize, int elementCount, void *store) {
   FILE *fp;
   fopen_s(&fp, filePath.c_str(), "rb");
   fread((char *)store, elementSize, elementCount, fp);
@@ -43,8 +42,7 @@ void readFileBinary(string filePath, int elementSize, int elementCount,
 }
 
 // Write binary file.
-void writeFileBinary(void *ptr, int elementSize, int elementCount,
-                     string filePath) {
+void writeFileBinary(void *ptr, int elementSize, int elementCount, string filePath) {
   FILE *fp;
   fopen_s(&fp, filePath.c_str(), "wb");
   fwrite((char *)ptr, elementSize, elementCount, fp);
@@ -52,8 +50,7 @@ void writeFileBinary(void *ptr, int elementSize, int elementCount,
 }
 
 // Image data type conversion, uint8 to float.
-void uint8ImageToFloat(uint8 *src, float *dst, int H, int W,
-                       bool normalize = true) {
+void uint8ImageToFloat(uint8 *src, float *dst, int H, int W, bool normalize = true) {
   float normalizer = 1.0 / (normalize ? 255 : 1);
   for (int i = 0; i < H * W; i++) {
     dst[i] = src[i] * normalizer;
