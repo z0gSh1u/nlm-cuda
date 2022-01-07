@@ -3,7 +3,6 @@
 import numpy as np
 from PIL import Image
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
-import os
 import os.path as path
 
 NoiseTypes = ['gaussian', 'poisson', 'snp']

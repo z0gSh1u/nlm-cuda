@@ -1,7 +1,8 @@
 /.vs/
 /out/
 /temp/
-/experiment/Noisy/DIV2K_0832_gaussian/
-/experiment/Noisy/DIV2K_0832_poisson/
-/experiment/Noisy/DIV2K_0832_snp/
-/experiment/Denoised/NLM/RAW
+/build/
+/experiment/**/*.bmp
+/experiment/**/*.raw
+/experiment/**/*.zip
+!/experiment/GroundTruth/*.bmp
