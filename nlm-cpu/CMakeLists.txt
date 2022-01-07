@@ -8,4 +8,4 @@ find_package(RapidJSON CONFIG REQUIRED)
 
 add_executable(nlm-cpu "nlm-cpu.cpp")
 
-target_link_libraries(nlm-cpu ${ITK_LIBRARIES} rapidjson)
+target_link_libraries(nlm-cpu rapidjson)

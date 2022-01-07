@@ -3,8 +3,8 @@
   "SourceImageWidth": 512,
   "SourceImageHeight": 512,
 
-  "FilterSize": 7,
-  "WindowSize": 14,
+  "PatchSize": 3,
+  "WindowSize": 7,
   "ParamH": 20.0,
 
   "OutputImagePath": "F:/nlm-cuda/temp/res.raw"

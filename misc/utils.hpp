@@ -9,10 +9,23 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <string>
+#include <stdexcept>
+
+using std::runtime_error;
+using std::string;
 
 typedef unsigned char uint8;
 
-// Read file content as std::string.
+// Ensure `ensure`, else throw and output hint.
+void ASSERT(bool ensure, const string &hint) {
+  if (!ensure) {
+    std::cerr << hint << std::endl;
+    throw runtime_error(hint);
+  }
+}
+
+// Read file content as text to std::string.
 string readFileText(string filePath) {
   std::ifstream s(filePath);
   std::stringstream buf;
@@ -21,7 +34,7 @@ string readFileText(string filePath) {
 }
 
 // Read binary file.
-void readFileBinary(std::string filePath, int elementSize, int elementCount,
+void readFileBinary(string filePath, int elementSize, int elementCount,
                     void *store) {
   FILE *fp;
   fopen_s(&fp, filePath.c_str(), "rb");
@@ -31,7 +44,7 @@ void readFileBinary(std::string filePath, int elementSize, int elementCount,
 
 // Write binary file.
 void writeFileBinary(void *ptr, int elementSize, int elementCount,
-                     std::string filePath) {
+                     string filePath) {
   FILE *fp;
   fopen_s(&fp, filePath.c_str(), "wb");
   fwrite((char *)ptr, elementSize, elementCount, fp);
@@ -39,9 +52,11 @@ void writeFileBinary(void *ptr, int elementSize, int elementCount,
 }
 
 // Image data type conversion, uint8 to float.
-void uint8ImageToFloat(uint8 *src, float *dst, int H, int W) {
+void uint8ImageToFloat(uint8 *src, float *dst, int H, int W,
+                       bool normalize = true) {
+  float normalizer = 1.0 / (normalize ? 255 : 1);
   for (int i = 0; i < H * W; i++) {
-    dst[i] = src[i] / 255.0f;
+    dst[i] = src[i] * normalizer;
   }
 }
 
