@@ -1,2 +1,4 @@
+# Make it a CUDA repository!
 *.m linguist-vendored
 *.mat linguist-vendored
+*.hpp linguist-vendored

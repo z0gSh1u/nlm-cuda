@@ -1,11 +1,11 @@
 {
-  "SourceImagePath": "F:/nlm-cuda/experiment/Noisy/DIV2K_0832_gaussian/DIV2K_0832_gaussian.raw(blue).raw",
+  "SourceImagePath": "F:/nlm-cuda/experiment/Noisy/DIV2K_0832_snp/DIV2K_0832_snp.raw (blue).raw",
   "SourceImageWidth": 2040,
   "SourceImageHeight": 1356,
 
   "PatchSize": 5,
-  "WindowSize": 13,
-  "ParamH": 8.0,
+  "WindowSize": 17,
+  "ParamH": 15.0,
 
-  "OutputImagePath": "F:/nlm-cuda/temp/DIV2K_0832_gaussian.raw(blue).raw"
+  "OutputImagePath": "F:/nlm-cuda/temp/DIV2K_0832_snp.raw (blue).raw"
 }

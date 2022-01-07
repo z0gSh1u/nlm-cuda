@@ -5,11 +5,15 @@
 
 % clear; clc;
 addpath('utilities');
-folderTest  = 'testsets'; %%% test dataset
+
+%%% Modified!
+% folderTest  = fullfile('testsets'); %%% test dataset
+folderTest = 'F:/nlm-cuda/experiment/Noisy/C/';
+
 folderModel = 'model';
-noiseSigma  = 45;  %%% image noise level
+noiseSigma  = 25;  %%% image noise level
 showResult  = 1;
-useGPU      = 1;
+useGPU      = 0;
 pauseTime   = 1;
 
 
@@ -17,7 +21,7 @@ pauseTime   = 1;
 load(fullfile(folderModel,'GD_Color_Blind.mat')); %%% for sigma in [0,55]
 
 %%%
-% net = vl_simplenn_tidy(net);
+net = vl_simplenn_tidy(net);
 
 % for i = 1:size(net.layers,2)
 %     net.layers{i}.precious = 1;
@@ -74,8 +78,10 @@ for i = 1:length(filePaths)
     end
     PSNRs(i) = PSNRCur;
     
+    %%% Modified!
+    outputUint8 = im2uint8(output);
+    imwrite(outputUint8, strcat('F:/nlm-cuda/experiment/Denoised/DnCNN/', filePaths(i).name));
+
 end
 
 disp(mean(PSNRs));
-
-

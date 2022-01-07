@@ -187,9 +187,8 @@ __host__ void getCurrentTimeMS(bool &available, time_t &value) {
 int main(int argc, char *argv[]) {
   cout << "\033[46;30m [NLM-GPU] Running... \033[0m" << endl;
   // Load config file.
-  // ASSERT(argc >= 2, "[Usage] ./nlm-cpu path/to/config.json");
-  // loadConfig(string(argv[1]));
-  loadConfig("F:/nlm-cuda/NLMConfig.json");
+  ASSERT(argc >= 2, "[Usage] ./nlm-cpu path/to/config.json");
+  loadConfig(string(argv[1]));
 
   // Read source image (8-bit, single channel).
   uint8 *src8bit = new uint8[srcH * srcW];
@@ -216,23 +215,22 @@ int main(int argc, char *argv[]) {
   cudaMalloc(&dst, srcH * srcW * sizeof(float));
 
   // Non-Local Means Denoise
-  dim3 Block(16, 16); // use 64 threads concurrent
-  dim3 Grid((padH + 15) / Block.x, (padW + 15) / Block.y);
-  bool timeAvailable;
+  dim3 BlockThread(16, 16); // use 16x16 threads concurrent
+  dim3 GridBlock((padH + BlockThread.x - 1) / BlockThread.x,
+                 (padW + BlockThread.y - 1) / BlockThread.y);
+  bool isTimeAvailable;
   time_t tic, toc;
 
-  fprintf(stderr, "s1 : %s\n", cudaGetErrorString(cudaGetLastError()));
-
-  getCurrentTimeMS(timeAvailable, tic);
-  NLMDenoise<<<Grid, Block>>>(pad, PatchRadius, WindowRadius, padH, padW, srcH, srcW, ParamH, dst);
-  fprintf(stderr, "s2 : %s\n", cudaGetErrorString(cudaGetLastError()));
+  getCurrentTimeMS(isTimeAvailable, tic);
+  NLMDenoise<<<GridBlock, BlockThread>>>(pad, PatchRadius, WindowRadius, padH, padW, srcH, srcW,
+                                         ParamH, dst);
   cudaDeviceSynchronize();
-  getCurrentTimeMS(timeAvailable, toc);
+  getCurrentTimeMS(isTimeAvailable, toc);
 
   cudaFree(pad);
 
   cout << " [NLM-CUDA] Time elapsed: ";
-  if (timeAvailable) {
+  if (isTimeAvailable) {
     cout << toc - tic << " ms." << endl;
   } else {
     cout << "Unavailable." << endl;
@@ -241,14 +239,9 @@ int main(int argc, char *argv[]) {
   // Fetch dst to CPU.
   h_dst = new float[srcH * srcW];
 
-  cudaError_t err;
-
-  err = cudaMemcpy(h_dst, dst, srcH * srcW * sizeof(float), cudaMemcpyDeviceToHost);
+  cudaMemcpy(h_dst, dst, srcH * srcW * sizeof(float), cudaMemcpyDeviceToHost);
   cudaDeviceSynchronize();
-
-  if (err != cudaSuccess) {
-    fprintf(stderr, "cudaMemcpy : %s\n", cudaGetErrorString(cudaGetLastError()));
-  }
+  fprintf(stderr, "Error Message : %s\n", cudaGetErrorString(cudaGetLastError()));
 
   // Save.
   uint8 *dst8bit = new uint8[srcH * srcW];

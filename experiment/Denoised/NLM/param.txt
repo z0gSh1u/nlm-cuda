@@ -1,6 +1,0 @@
-lena
-  "PatchSize": 5,
-  "WindowSize": 13,
-  "ParamH": 18.0,
-But Poisson ParamH uses 8
-

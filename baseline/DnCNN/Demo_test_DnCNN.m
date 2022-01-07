@@ -5,7 +5,11 @@
 
 % clear; clc;
 addpath('utilities');
-folderTest  = fullfile('testsets'); %%% test dataset
+
+%%% Modified!
+% folderTest  = fullfile('testsets'); %%% test dataset
+folderTest = 'F:/nlm-cuda/experiment/Noisy/';
+
 folderModel = 'model';
 noiseSigma  = 25;  %%% image noise level
 showResult  = 1;
@@ -81,8 +85,11 @@ for i = 1:length(filePaths)
     end
     PSNRs(i) = PSNRCur;
     SSIMs(i) = SSIMCur;
+
+    %%% Modified!
+    outputUint8 = im2uint8(output);
+    imwrite(outputUint8, strcat('F:/nlm-cuda/experiment/Denoised/DnCNN/', filePaths(i).name));
+
 end
 
 disp([mean(PSNRs),mean(SSIMs)]);
-
-

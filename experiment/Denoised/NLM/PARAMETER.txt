@@ -1,0 +1,17 @@
+lena512_*
+  "PatchSize": 5,
+  "WindowSize": 13,
+  "ParamH": 18.0,
+But Poisson ParamH uses 8
+
+DIV2K_0832_*
+  "PatchSize": 5,
+  "WindowSize": 17,
+  "ParamH": 15.0,
+But Poisson ParamH uses 5
+
+C052_1-150_*
+  "PatchSize": 5,
+  "WindowSize": 13,
+  "ParamH": 18.0,
+But Poisson ParamH uses 8
