@@ -115,6 +115,7 @@ __global__ void NLMDenoise(float *pad, int PatchRadius, int WindowRadius, int pa
   // corresponding position in pad
   int pr = PatchRadius, wr = WindowRadius;
   int r = i + pr, c = j + pr;
+  float h2 = powf(ParamH, 2);
 
   // ====== [EXPAND] [struct Patch] ======
   // source patch
@@ -159,7 +160,7 @@ __global__ void NLMDenoise(float *pad, int PatchRadius, int WindowRadius, int pa
       distance = l2;
       // ====== [EXPAND] [calcPatchDistance] ======
 
-      weight = expf(-distance / powf(ParamH, 2)); // w = exp(-d/h^2)
+      weight = expf(-distance / h2); // w = exp(-d/h^2)
       sumWeight += weight;
       maxWeight = MAX(maxWeight, weight);
       averageValue += weight * pad[INDEX(k, l, padW)];
@@ -228,7 +229,6 @@ int main(int argc, char *argv[]) {
   getCurrentTimeMS(isTimeAvailable, toc);
 
   cudaFree(pad);
-
   cout << " [NLM-CUDA] Time elapsed: ";
   if (isTimeAvailable) {
     cout << toc - tic << " ms." << endl;
@@ -238,9 +238,9 @@ int main(int argc, char *argv[]) {
 
   // Fetch dst to CPU.
   h_dst = new float[srcH * srcW];
-
   cudaMemcpy(h_dst, dst, srcH * srcW * sizeof(float), cudaMemcpyDeviceToHost);
   cudaDeviceSynchronize();
+  cudaFree(dst);
   fprintf(stderr, "Error Message : %s\n", cudaGetErrorString(cudaGetLastError()));
 
   // Save.

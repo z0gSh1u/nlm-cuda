@@ -61,8 +61,8 @@ void loadConfig(string configPath) {
   cout << "\033[32m [NLM-CPU] Config file loaded. \033[0m" << endl;
 }
 
-// Get pixel index according to row and col.
-int index(int r, int c, int W) { return r * W + c; }
+// Get pixel INDEX according to row and col.
+#define INDEX(r, c, W) ((r) * (W) + (c))
 
 // Pad image symmetrically (mirror) with PatchRadius.
 void padSourceImageSymmetric() {
@@ -70,30 +70,30 @@ void padSourceImageSymmetric() {
   // Original Viewport.
   for (i = 0; i < srcH; i++) {
     for (j = 0; j < srcW; j++) {
-      pad[index(i + pr, j + pr, padW)] = src[index(i, j, srcW)];
+      pad[INDEX(i + pr, j + pr, padW)] = src[INDEX(i, j, srcW)];
     }
   }
   // Four Wings.
   dstIdx = pr, srcIdx = 0;
   while (srcIdx++, dstIdx--) {
     for (i = 0; i < srcH; i++) {
-      pad[index(i + pr, dstIdx, padW)] = src[index(i, srcIdx, srcW)];
-      pad[index(i + pr, dstIdx + srcW + 2 * srcIdx - 1, padW)] = src[index(i, srcW - srcIdx, srcW)];
+      pad[INDEX(i + pr, dstIdx, padW)] = src[INDEX(i, srcIdx, srcW)];
+      pad[INDEX(i + pr, dstIdx + srcW + 2 * srcIdx - 1, padW)] = src[INDEX(i, srcW - srcIdx, srcW)];
     }
     for (j = 0; j < srcW; j++) {
-      pad[index(dstIdx, j + pr, padW)] = src[index(srcIdx, j, srcW)];
-      pad[index(dstIdx + srcH + 2 * srcIdx - 1, j + pr, padW)] = src[index(srcH - srcIdx, j, srcW)];
+      pad[INDEX(dstIdx, j + pr, padW)] = src[INDEX(srcIdx, j, srcW)];
+      pad[INDEX(dstIdx + srcH + 2 * srcIdx - 1, j + pr, padW)] = src[INDEX(srcH - srcIdx, j, srcW)];
     }
   }
   // Corners. Pad according to rows of wing.
   dstIdx = srcIdx = pr;
   while (srcIdx++, dstIdx--) {
     for (i = 0; i < pr; i++) {
-      pad[index(i, dstIdx, padW)] = pad[index(i, srcIdx, padW)];
-      pad[index(i, srcIdx + srcW - 1, padW)] = pad[index(i, dstIdx + srcW, padW)];
-      pad[index(i + srcH + pr, dstIdx, padW)] = pad[index(i + srcH + pr, srcIdx, padW)];
-      pad[index(i + srcH + pr, srcIdx + srcW - 1, padW)] =
-          pad[index(i + srcH + pr, dstIdx + srcW, padW)];
+      pad[INDEX(i, dstIdx, padW)] = pad[INDEX(i, srcIdx, padW)];
+      pad[INDEX(i, srcIdx + srcW - 1, padW)] = pad[INDEX(i, dstIdx + srcW, padW)];
+      pad[INDEX(i + srcH + pr, dstIdx, padW)] = pad[INDEX(i + srcH + pr, srcIdx, padW)];
+      pad[INDEX(i + srcH + pr, srcIdx + srcW - 1, padW)] =
+          pad[INDEX(i + srcH + pr, dstIdx + srcW, padW)];
     }
   }
 }
@@ -107,7 +107,7 @@ float calcPatchDistance(Patch w1, Patch w2) {
   ASSERT(rowRange1 == rowRange2 && colRange1 == colRange2, "Windows not of same size.");
   for (int i = 0; i < rowRange1; i++) {
     for (int j = 0; j < colRange1; j++) {
-      l2 += pow(pad[index(w1.r0 + i, w1.c0 + j, padW)] - pad[index(w2.r0 + i, w2.c0 + j, padW)], 2);
+      l2 += pow(pad[INDEX(w1.r0 + i, w1.c0 + j, padW)] - pad[INDEX(w2.r0 + i, w2.c0 + j, padW)], 2);
     }
   }
   l2 /= pow(PatchRadius * 2 + 1, 2); // normalize
@@ -116,6 +116,7 @@ float calcPatchDistance(Patch w1, Patch w2) {
 
 // Non-local Means denoise.
 void NLMDenoise(int pr, int wr) {
+  float h2 = pow(ParamH, 2);
   // iterate dst image (reverse mapping) to ensure every pixel has denoised value
   // (i, j) is (row, col) of dst image
   for (int i = 0; i < srcH; i++) {
@@ -123,6 +124,7 @@ void NLMDenoise(int pr, int wr) {
     for (int j = 0; j < srcW; j++) {
       // corresponding position in pad
       int r = i + pr, c = j + pr;
+
       // source patch
       Patch SourcePatch(r - pr, r + pr, c - pr, c + pr);
       // search window
@@ -145,18 +147,18 @@ void NLMDenoise(int pr, int wr) {
             continue;
           }
           distance = calcPatchDistance(SourcePatch, ComparePatch); // use L2 Norm as distance
-          weight = exp(-distance / pow(ParamH, 2));                // w = exp(-d/h^2)
+          weight = exp(-distance / h2);                // w = exp(-d/h^2)
           sumWeight += weight;
           maxWeight = std::max(maxWeight, weight);
-          averageValue += weight * pad[index(k, l, padW)];
+          averageValue += weight * pad[INDEX(k, l, padW)];
         }
       }
 
       // Deal with center pixel, use maximum weight for it instead of 1 when distance is 0.
       // Otherwise, 1 is too big to other weights, that noise is preserved.
       sumWeight += maxWeight;
-      averageValue += maxWeight * pad[index(r, c, padW)];
-      dst[index(i, j, srcW)] = averageValue / sumWeight;
+      averageValue += maxWeight * pad[INDEX(r, c, padW)];
+      dst[INDEX(i, j, srcW)] = averageValue / sumWeight;
     }
   }
 }
@@ -193,8 +195,10 @@ int main(int argc, char *argv[]) {
   cout << endl << " [NLM-CPU] Time elapsed: " << toc - tic << " secs." << endl;
 
   // Save.
-  writeFileBinary(dst, sizeof(float), srcH * srcW, dstPath);
-
+  uint8 *dst8bit = new uint8[srcH * srcW];
+  floatImageToUint8(dst, dst8bit, srcH, srcW);
+  writeFileBinary(dst8bit, sizeof(uint8), srcH * srcW, dstPath);
   cout << "\033[32m [NLM-CPU] Done. \033[0m" << endl;
+  
   return 0;
 }
