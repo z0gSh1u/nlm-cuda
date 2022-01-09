@@ -5,7 +5,7 @@
 
 % clear; clc;
 addpath('utilities');
-
+19
 %%% Modified!
 % folderTest  = fullfile('testsets'); %%% test dataset
 folderTest = 'F:/nlm-cuda/experiment/Noisy/C/';
@@ -80,7 +80,7 @@ for i = 1:length(filePaths)
     
     %%% Modified!
     outputUint8 = im2uint8(output);
-    imwrite(outputUint8, strcat('F:/nlm-cuda/experiment/Denoised/DnCNN/', filePaths(i).name));
+    %imwrite(outputUint8, strcat('F:/nlm-cuda/experiment/Denoised/DnCNN/', filePaths(i).name));
 
 end
 

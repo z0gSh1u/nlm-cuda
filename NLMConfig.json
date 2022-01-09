@@ -4,8 +4,8 @@
   "SourceImageHeight": 512,
 
   "PatchSize": 5,
-  "WindowSize": 13,
-  "ParamH": 18.0,
+  "WindowSize": 51,
+  "ParamH": 15.0,
 
   "OutputImagePath": "F:/nlm-cuda/temp/lena512_gaussian.raw"
 }
